@@ -1,0 +1,29 @@
+{
+  "name": "docdigitalizordb",
+  "version": "1.0.0",
+  "description": "service for firebase db connection and CRUD",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ramygouiaa/docdigitalizordb.git"
+  },
+  "keywords": [
+    "firebase",
+    "database"
+  ],
+  "author": "Ramy Gouiaa",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ramygouiaa/docdigitalizordb/issues"
+  },
+  "homepage": "https://github.com/ramygouiaa/docdigitalizordb#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "firebase": "^9.18.0"
+  }
+}
