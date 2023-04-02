@@ -24,7 +24,7 @@ const firebaseConfig = {
     measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 4002;
 
 const server = express();
 // Initialize Firebase
@@ -69,15 +69,15 @@ const verifyUserPassword = (password, passwordHash) => {
 
 const firebaseRegisterUserWithEmailAndPassword = (email, password) => {
     createUserWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-        const user = userCredential.user;
-        console.log("user added",user);
-    }).catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log(errorCode);
-        console.log(errorMessage);
-      });
+        .then((userCredential) => {
+            const user = userCredential.user;
+            console.log("user added", user);
+        }).catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            console.log(errorCode);
+            console.log(errorMessage);
+        });
 }
 
 const checkUserExists = (email) => {
@@ -134,9 +134,9 @@ async function registerUserWithEmailAndPassword(email, password) {
 
 const getTimestamp = () => {
     //timestamp in milliseconds 
-   const ts = Date.now();
+    const ts = Date.now();
 
-   return Math.floor(ts/1000)//return timestamp in seconds
+    return Math.floor(ts / 1000)//return timestamp in seconds
 }
 
 const getUser = (email) => {
@@ -151,7 +151,7 @@ const getUser = (email) => {
                     resolve(user)
                 } else {
                     resolve({
-                        message:'user not found'
+                        message: 'user not found'
                     })
                 }
             })
@@ -163,12 +163,12 @@ const getUser = (email) => {
 
 }
 
-const updateUser = async (email, newData) =>{
+const updateUser = async (email, newData) => {
     const dbref = setReference();
     const emailHash = sha256(email.toLowerCase());
 
     return new Promise((resolve, reject) => {
-        update(child(dbref, "mynewlist/" + emailHash),newData)
+        update(child(dbref, "mynewlist/" + emailHash), newData)
             .then(() => {
                 resolve('user data updated')
             })
@@ -181,10 +181,10 @@ const updateUser = async (email, newData) =>{
 
 }
 
-const addDigitalizedDocumentToUser = async (email) => {
+const addDigitalizedDocumentToUser = async (email, docId) => {
     const document = {
-        docId:nanoid(),
-        creationDate:getTimestamp()
+        docId,
+        creationDate: getTimestamp()
     }
     const user = await getUser(email);
 
@@ -195,7 +195,7 @@ const addDigitalizedDocumentToUser = async (email) => {
             const result = await updateUser(user.email, user);
 
             resolve({
-                message:result,
+                message: result,
                 user
             });
 
@@ -206,13 +206,13 @@ const addDigitalizedDocumentToUser = async (email) => {
             const result = await updateUser(user.email, user);
 
             resolve({
-                message:result,
+                message: result,
                 user
             });
 
-        }else {
+        } else {
             reject({
-                message:'something went wrong'
+                message: 'something went wrong'
             });
         }
     })
@@ -261,6 +261,19 @@ server.get('/', (req, res) => {
     res.send('Welcome to docdigitalizor database service registry service!')
 })
 
+server.get('/useruid', async (req, res) => {
+    const email = req.query.email
+    try {
+        const user = await getUser(email)
+        res.status(200).send(user.uid);
+    } catch (error) {
+        res.send({
+            message: 'not found',
+            errorMessage: error
+        })
+    }
+})
+
 server.post('/register', async (req, res) => {
     const { email, password } = req.body;
 
@@ -280,6 +293,23 @@ server.post('/register', async (req, res) => {
 
     } catch (error) {
 
+    }
+
+})
+
+server.post('/addnewdocumentusertodb', async (req, res) => {
+    const { email, documentId } = req.body
+    try {
+        const userData = await addDigitalizedDocumentToUser(email, documentId);
+        res.status(200).send({
+            message:'User document added!',
+            userData
+        })
+    } catch (error) {
+        res.send({
+            message:'An error occured!',
+            error
+        })
     }
 
 })
