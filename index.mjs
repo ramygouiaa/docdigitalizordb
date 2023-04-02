@@ -150,7 +150,9 @@ const getUser = (email) => {
                     const user = snapshot.val();
                     resolve(user)
                 } else {
-                    resolve(false)
+                    resolve({
+                        message:'user not found'
+                    })
                 }
             })
             .catch((error) => {
