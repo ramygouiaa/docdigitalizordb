@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, set, push, child, update, remove } from "firebase/database";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid';
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 
