@@ -1,10 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, set, push, child, update, remove } from "firebase/database";
-//import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { nanoid } from 'nanoid'
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+
+import express from "express";
 
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -22,11 +24,14 @@ const firebaseConfig = {
     measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
+const port = process.env.PORT || 4000;
+
+const server = express();
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
 const db = getDatabase(app);
-//const auth = getAuth(app);
+const auth = getAuth(app);
 
 const sha256 = (input) => {
     const hash = crypto.createHash('sha256');
@@ -61,8 +66,8 @@ const verifyUserPassword = (password, passwordHash) => {
         });
     })
 }
-/*
-const registerUserWithEmailAndPassword = (email, password) => {
+
+const firebaseRegisterUserWithEmailAndPassword = (email, password) => {
     createUserWithEmailAndPassword(auth, email, password)
     .then((userCredential) => {
         const user = userCredential.user;
@@ -74,7 +79,6 @@ const registerUserWithEmailAndPassword = (email, password) => {
         console.log(errorMessage);
       });
 }
-*/
 
 const checkUserExists = (email) => {
     const emailHash = sha256(email.toLowerCase());
@@ -100,26 +104,39 @@ const checkUserExists = (email) => {
 
 async function registerUserWithEmailAndPassword(email, password) {
     const userExist = await checkUserExists(email);
+    return new Promise(async (resolve, reject) => {
 
-    if (!userExist) {
-        const userId = createUserId();
-        const ref = setReference('mynewlist/' + sha256(email.toLowerCase()));
-        const user = {
-            uid: userId,
-            email,
-            password: await hashPasswordWithBcrypt(password)
+        if (!userExist) {
+            const userId = createUserId();
+            const ref = setReference('mynewlist/' + sha256(email.toLowerCase()));
+            const user = {
+                uid: userId,
+                email,
+                password: await hashPasswordWithBcrypt(password)
+            }
+            set(ref, user)
+                .then(() => {
+                    console.log(`succesfully added!`)
+                    resolve('user added')
+                })
+                .catch((error) => {
+                    console.log(error);
+                });
+        } else {
+            resolve('user already exists')
         }
-        set(ref, user)
-            .then(() => {
-                console.log(`succesfully added!`)
-            })
-            .catch((error) => {
-                console.log(error);
-            });
 
-    } else {
-        return 'user already exists'
-    }
+    })
+
+
+
+}
+
+const getTimestamp = () => {
+    //timestamp in milliseconds 
+   const ts = Date.now();
+
+   return Math.floor(ts/1000)//return timestamp in seconds
 }
 
 const getUser = (email) => {
@@ -141,6 +158,63 @@ const getUser = (email) => {
             })
 
     })
+
+}
+
+const updateUser = async (email, newData) =>{
+    const dbref = setReference();
+    const emailHash = sha256(email.toLowerCase());
+
+    return new Promise((resolve, reject) => {
+        update(child(dbref, "mynewlist/" + emailHash),newData)
+            .then(() => {
+                resolve('user data updated')
+            })
+            .catch((error) => {
+                console.log(error);
+                reject(error);
+            })
+
+    })
+
+}
+
+const addDigitalizedDocumentToUser = async (email) => {
+    const document = {
+        docId:nanoid(),
+        creationDate:getTimestamp()
+    }
+    const user = await getUser(email);
+
+    return await new Promise(async (resolve, reject) => {
+        if (user && user.documents && user.documents.length != 0) {
+            user.documents.push(document);
+            //here we update the user in database
+            const result = await updateUser(user.email, user);
+
+            resolve({
+                message:result,
+                user
+            });
+
+        } else if (user && !user.documents) {
+            user.documents = [];
+            user.documents.push(document);
+            //here we update the user in database
+            const result = await updateUser(user.email, user);
+
+            resolve({
+                message:result,
+                user
+            });
+
+        }else {
+            reject({
+                message:'something went wrong'
+            });
+        }
+    })
+
 
 }
 
@@ -178,3 +252,36 @@ function UpdateData() {
             console.log(error);
         });
 }
+
+server.use(express.json());
+
+server.get('/', (req, res) => {
+    res.send('Welcome to docdigitalizor database service registry service!')
+})
+
+server.post('/register', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        const result = await registerUserWithEmailAndPassword(email, password);
+        if (result && result === 'user added') {
+            res.status(200);
+            res.send({
+                message: result
+            })
+        } else {
+            res.status(500);
+            res.send({
+                message: result
+            });
+        }
+
+    } catch (error) {
+
+    }
+
+})
+
+server.listen(port, () => {
+    console.log(`docdigitalizordb service listening at http://localhost:${port}`);
+});
