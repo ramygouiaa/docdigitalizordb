@@ -182,13 +182,13 @@ const updateUser = async (email, newData) => {
 }
 
 const addDigitalizedDocumentToUser = async (email, docId) => {
-    const document = {
-        docId,
-        creationDate: getTimestamp()
-    }
-    const user = await getUser(email);
-
     return await new Promise(async (resolve, reject) => {
+        const user = await getUser(email);
+        const document = {
+            docId,
+            creationDate: getTimestamp(),
+            anchorKey: `${user.uid}_${docId}`
+        }
         if (user && user.documents && user.documents.length != 0) {
             user.documents.push(document);
             //here we update the user in database
@@ -215,6 +215,8 @@ const addDigitalizedDocumentToUser = async (email, docId) => {
                 message: 'something went wrong'
             });
         }
+    }).catch((error)=>{
+        console.log(error);
     })
 
 
@@ -267,14 +269,11 @@ server.get('/useruid', async (req, res) => {
         const user = await getUser(email)
         res.status(200).send(user.uid);
     } catch (error) {
-        res.send({
-            message: 'not found',
-            errorMessage: error
-        })
+        next(error)
     }
 })
 
-server.post('/register', async (req, res) => {
+server.post('/register', async (req, res, next) => {
     const { email, password } = req.body;
 
     try {
@@ -292,42 +291,38 @@ server.post('/register', async (req, res) => {
         }
 
     } catch (error) {
-
+        next(error);
     }
 
 })
 
-server.post('/addnewdocumentusertodb', async (req, res) => {
+server.post('/addnewdocumentusertodb', async (req, res, next) => {
     const { email, documentId } = req.body
     try {
         const userData = await addDigitalizedDocumentToUser(email, documentId);
         res.status(200).send({
-            message:'User document added!',
+            message: 'User document added!',
             userData
         })
     } catch (error) {
-        res.send({
-            message:'An error occured!',
-            error
-        })
+        next(error);
     }
-
 })
 
 // Error handling middleware
-app.use(function(err, req, res, next) {
+server.use(function (err, req, res, next) {
     console.error(err.stack);
     res.status(500).send('Something broke!');
-  });
-  
-  // Process event listeners
-  process.on('uncaughtException', function(err) {
+});
+
+// Process event listeners
+process.on('uncaughtException', function (err) {
     console.error('Uncaught Exception:', err.stack);
-  });
-  
-  process.on('unhandledRejection', function(reason, promise) {
+});
+
+process.on('unhandledRejection', function (reason, promise) {
     console.error('Unhandled Rejection:', reason.stack || reason);
-  });
+});
 
 server.listen(port, () => {
     console.log(`docdigitalizordb service listening at http://localhost:${port}`);
