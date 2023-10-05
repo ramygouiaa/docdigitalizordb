@@ -11,8 +11,7 @@ import express from "express";
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Firebase configuration
 const firebaseConfig = {
     apiKey: process.env.FIREBASE_API_KEY,
     authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -27,9 +26,9 @@ const firebaseConfig = {
 const port = process.env.PORT || 4002;
 
 const server = express();
-// Initialize Firebase
+
 const app = initializeApp(firebaseConfig);
-//const analytics = getAnalytics(app);
+
 const db = getDatabase(app);
 const auth = getAuth(app);
 
@@ -67,25 +66,12 @@ const verifyUserPassword = (password, passwordHash) => {
     })
 }
 
-const firebaseRegisterUserWithEmailAndPassword = (email, password) => {
-    createUserWithEmailAndPassword(auth, email, password)
-        .then((userCredential) => {
-            const user = userCredential.user;
-            console.log("user added", user);
-        }).catch((error) => {
-            const errorCode = error.code;
-            const errorMessage = error.message;
-            console.log(errorCode);
-            console.log(errorMessage);
-        });
-}
-
 const checkUserExists = (email) => {
     const emailHash = sha256(email.toLowerCase());
     const dbref = setReference();
     return new Promise((resolve, reject) => {
 
-        get(child(dbref, "mynewlist/" + emailHash))
+        get(child(dbref, "Users/" + emailHash))
             .then((snapshot) => {
                 if (snapshot.exists()) {
                     const user = snapshot.val();
@@ -108,7 +94,7 @@ async function registerUserWithEmailAndPassword(email, password) {
 
         if (!userExist) {
             const userId = createUserId();
-            const ref = setReference('mynewlist/' + sha256(email.toLowerCase()));
+            const ref = setReference('Users/' + sha256(email.toLowerCase()));
             const user = {
                 uid: userId,
                 email,
@@ -144,7 +130,7 @@ const getUser = (email) => {
     const emailHash = sha256(email.toLowerCase());
 
     return new Promise((resolve, reject) => {
-        get(child(dbref, "mynewlist/" + emailHash))
+        get(child(dbref, "Users/" + emailHash))
             .then((snapshot) => {
                 if (snapshot.exists()) {
                     const user = snapshot.val();
@@ -168,7 +154,7 @@ const updateUser = async (email, newData) => {
     const emailHash = sha256(email.toLowerCase());
 
     return new Promise((resolve, reject) => {
-        update(child(dbref, "mynewlist/" + emailHash), newData)
+        update(child(dbref, "Users/" + emailHash), newData)
             .then(() => {
                 resolve('user data updated')
             })
@@ -215,7 +201,7 @@ const addDigitalizedDocumentToUser = async (email, docId) => {
                 message: 'something went wrong'
             });
         }
-    }).catch((error)=>{
+    }).catch((error) => {
         console.log(error);
     })
 
@@ -233,49 +219,25 @@ const loginUser = async (email, password) => {
 
 }
 
-function FindData() {
-    // const dbref = ref(db);
-
-    get(ref(db, 'testfoo'))
-        .then((snapshot) => {
-            console.log(snapshot.val());
-        })
-        .catch((error) => {
-            console.log(error);
-        });
-}
-
-function UpdateData() {
-    update(ref(db, "testObj"), {
-        alpha: "dddd"
-    })
-        .then(() => {
-            console.log("Data updated successfully");
-        })
-        .catch((error) => {
-            console.log(error);
-        });
-}
-
 server.use(express.json());
 
 server.get('/', (req, res) => {
     res.send('Welcome to docdigitalizor database service registry service!')
 })
 
-server.get('/useruid', async (req, res) => {
-    const email = req.query.email
-    try {
-        const user = await getUser(email)
+server.get('/users/:email/uid', async (req, res) => {
+    const email = req.params.email;
+    if (user) {
         res.status(200).send(user.uid);
-    } catch (error) {
-        next(error)
+    } else {
+        res.status(404).send({
+            message: `User with email ${email} not found`,
+        });
     }
 })
 
 server.post('/register', async (req, res, next) => {
     const { email, password } = req.body;
-
     try {
         const result = await registerUserWithEmailAndPassword(email, password);
         if (result && result === 'user added') {
@@ -289,15 +251,61 @@ server.post('/register', async (req, res, next) => {
                 message: result
             });
         }
-
     } catch (error) {
         next(error);
     }
-
 })
 
-server.post('/addnewdocumentusertodb', async (req, res, next) => {
-    const { email, documentId } = req.body
+server.post('/users/firebase', async (req, res, next) => {
+    const { email, password } = req.body;
+    createUserWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            console.log(userCredential.user);
+            res.status(201);
+            res.json({
+                message: 'user added!'
+            })
+        }).catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            //console.log(errorCode);
+            //console.log(errorMessage);
+            res.status(500);
+            res.json({
+                errorCode,
+                errorMessage
+            })
+        });
+})
+
+server.post('/users/firebase/login', async (req, res, next) => {
+    const { email, password } = req.body;
+    signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            const { uid, email } = userCredential.user;
+            console.log(userCredential.user);
+            res.status(201);
+            res.json({
+                message: 'user authenticated',
+                uid,
+                email
+            })
+        }).catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            //console.log(errorCode);
+            //console.log(errorMessage);
+            res.status(500);
+            res.json({
+                errorCode,
+                errorMessage
+            })
+        });  
+})
+
+server.put('/users/:email/documents', async (req, res, next) => {
+    const email = req.params.email;
+    const { documentId } = req.body;
     try {
         const userData = await addDigitalizedDocumentToUser(email, documentId);
         res.status(200).send({
